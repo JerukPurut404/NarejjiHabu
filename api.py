@@ -45,6 +45,10 @@ class KennisHubAPI:
             raise ValueError('Een bericht is verplicht')
         if len(message) > 144:
             raise ValueError('Een bericht mag maximaal 144 karakters zijn')
+    
+    def input2slug(self, input):
+        slug = input.lower().replace(' ', '-')
+        return slug
 
     def login_user(self, email, password):
         endpoint = f"{self.base_url}user/login"
@@ -68,7 +72,7 @@ class KennisHubAPI:
             "name": name,
             "email": email,
             "function": function,
-            "url": "",
+            "url": url,
             "password": password
         }
         if len(password) < 8:
@@ -159,6 +163,14 @@ class KennisHubAPI:
         else:
             response.raise_for_status()
 
+    def follow_topic(self, token, topic_id):
+        endpoint = f"{self.base_url}topics/{topic_id}/follow-topic"
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.post(endpoint,headers=headers)
+        if self.format == "json":
+            return response.json()
+        else:
+            return response.text
 
     def get_topics_list(self, token, sort_order='desc'):
         endpoint = f"{self.base_url}topics/list"
@@ -186,8 +198,9 @@ class KennisHubAPI:
         
         return selected_info
 
-    def get_profile(self, token, slug_name):
-        endpoint = f"{self.base_url}user/profile/{slug_name}"
+    def get_profile(self, token, input_name):
+        slug = self.input2slug(input_name)
+        endpoint = f"{self.base_url}user/profile/{slug}"
         headers = {"Authorization": f"Bearer {token}"}
         response = requests.get(endpoint, headers=headers)
         if response.status_code == 200:
@@ -229,8 +242,20 @@ class KennisHubAPI:
         else:
             return response.text
 
+    def send_reply_comment(self, token, message, post_id):
+        endpoint = f"{self.base_url}comments/{post_id}/create"
+        params = {
+            "message": message
+        }
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.post(endpoint, params=params, headers=headers)
+        if self.format == "json":
+            return response.json()
+        else:
+            return response.text
 
-    def get_topics_replies(self, token, topic_slug, sort_by='created_at', sort_order='desc'):
+    def get_topics_replies(self, token, input_topic, sort_by='created_at', sort_order='desc'):
+        topic_slug = self.input2slug(input_topic)
         url = f"{self.base_url}posts/list"
         params = {
             "topic_slug": topic_slug,
@@ -247,13 +272,10 @@ class KennisHubAPI:
                 'title': post.get('title'),
                 'description': post.get('description'),
                 'url': post.get('url'),
+                'post_id': post.get('id'),
                 'post_date': post.get('human_readable_created_at'),
                 'user_name': post.get('user', {}).get('name'),
                 'user_slug': post.get('user', {}).get('slug'),
-                'user_function': post.get('user', {}).get('function'),
-                'user_email': post.get('user', {}).get('email'),
-                'interests': post.get('user', {}).get('interests', []),
-                'professions': post.get('user', {}).get('professions', []),
                 'upvotes_count': post.get('upvotes_count'),
                 'comments_count': post.get('comments_count'),
                 'post_created_at': post.get('user', {}).get('created_at'),
